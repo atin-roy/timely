@@ -16,14 +16,16 @@ import lombok.ToString;
 @AllArgsConstructor
 @Getter
 @Setter
-@EqualsAndHashCode(callSuper = true)
-@ToString(callSuper = true)
+@EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
+@ToString(callSuper = true, onlyExplicitlyIncluded = true)
 public class User extends BaseEntity {
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = 50)
+    @ToString.Include
+    @EqualsAndHashCode.Include
     private String email;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, length = 50)
     private String password;
 
     @Column(nullable = false, unique = true, length = 50)
