@@ -27,10 +27,6 @@ public class Todo extends BaseEntity {
     @Column(length = 1000)
     private String description;
 
-    /**
-     * Optional: Tag associated with this todo.
-     * NULL means the todo is not categorized.
-     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tag_id")
     private Tag tag;
@@ -39,5 +35,5 @@ public class Todo extends BaseEntity {
     private Boolean completed = false;
 
     @Column
-    private Integer priority; // Optional priority (1-5, etc.)
+    private Integer priority;
 }
