@@ -11,13 +11,11 @@ import lombok.Setter;
 import lombok.ToString;
 
 @Entity
-@Table(name = "users")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
-@EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
-@ToString(callSuper = true, onlyExplicitlyIncluded = true)
+@Table(name = "users")
 public class User extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 50)
@@ -31,3 +29,4 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 }
+
