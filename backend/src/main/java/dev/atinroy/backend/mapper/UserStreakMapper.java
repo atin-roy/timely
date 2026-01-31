@@ -8,6 +8,6 @@ import org.mapstruct.Mapping;
 @Mapper(config = MapperConfiguration.class)
 public interface UserStreakMapper {
 
-    @Mapping(target = "isActive", expression = "java(userStreak.isStreakActive())")
+    @Mapping(target = "isActive", source = "streakActive")
     StreakResponse toResponse(UserStreak userStreak);
 }
