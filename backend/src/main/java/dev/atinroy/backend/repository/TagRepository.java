@@ -16,5 +16,7 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
 
     boolean existsByUserIdAndLabel(Long userId, String label);
 
+    void deleteByIdAndUserId(Long id, Long userId);
+
     void deleteByUserId(Long userId);
 }
