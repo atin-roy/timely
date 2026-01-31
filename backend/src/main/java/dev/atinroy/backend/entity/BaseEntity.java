@@ -1,8 +1,6 @@
 package dev.atinroy.backend.entity;
 
 import java.time.Instant;
-
-import jdk.jfr.Timestamp;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -18,10 +16,13 @@ import jakarta.persistence.MappedSuperclass;
 @AllArgsConstructor
 @Getter
 @Setter
+@ToString(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public abstract class BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     @ToString.Include
+    @EqualsAndHashCode.Include
     private Long id;
 
     @CreationTimestamp
@@ -32,7 +33,6 @@ public abstract class BaseEntity {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    @Timestamp
-    @Column(nullable = false, updatable = false)
+    @Column
     private Instant deletedAt;
 }

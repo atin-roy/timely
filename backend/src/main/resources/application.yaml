@@ -1,3 +1,32 @@
 spring:
   application:
     name: backend
+  
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/timely}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+
+server:
+  port: ${PORT:8080}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:your-secret-key-change-this-in-production-make-it-at-least-256-bits-long}
+    expiration-ms: 86400000 # 24 hours
+
+logging:
+  level:
+    dev.atinroy.backend: DEBUG
+    org.springframework.security: DEBUG

@@ -11,6 +11,7 @@ import dev.atinroy.backend.exception.UnauthorizedException;
 import dev.atinroy.backend.repository.UserRepository;
 import dev.atinroy.backend.repository.UserSettingsRepository;
 import dev.atinroy.backend.repository.UserStreakRepository;
+import dev.atinroy.backend.security.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class AuthService {
     private final UserSettingsRepository userSettingsRepository;
     private final UserStreakRepository userStreakRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtils jwtUtils;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -55,10 +57,11 @@ public class AuthService {
         streak.setUser(savedUser);
         userStreakRepository.save(streak);
 
-        // For now, return a simple response without JWT token
-        // You'll need to integrate JWT token generation here
+        // Generate JWT token
+        String token = jwtUtils.generateToken(savedUser.getUsername(), savedUser.getId());
+
         return new AuthResponse(
-                "token-placeholder", // Replace with actual JWT token
+                token,
                 savedUser.getId(),
                 savedUser.getUsername(),
                 savedUser.getEmail());
@@ -75,10 +78,11 @@ public class AuthService {
             throw new UnauthorizedException("Invalid credentials");
         }
 
-        // For now, return a simple response without JWT token
-        // You'll need to integrate JWT token generation here
+        // Generate JWT token
+        String token = jwtUtils.generateToken(user.getUsername(), user.getId());
+
         return new AuthResponse(
-                "token-placeholder", // Replace with actual JWT token
+                token,
                 user.getId(),
                 user.getUsername(),
                 user.getEmail());

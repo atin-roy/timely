@@ -37,6 +37,12 @@ public class TimeBlockService {
                 .map(timeBlockMapper::toResponse);
     }
 
+    public List<TimeBlockResponse> getAllTimeBlocksByUser(Long userId) {
+        return timeBlockRepository.findByUserId(userId).stream()
+                .map(timeBlockMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
     public List<TimeBlockResponse> getTimeBlocksByDate(Long userId, LocalDate date) {
         return timeBlockRepository.findByUserIdAndDate(userId, date).stream()
                 .map(timeBlockMapper::toResponse)

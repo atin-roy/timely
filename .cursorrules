@@ -1,0 +1,14 @@
+# Cursor Rules for this project
+
+## Git Commit Rules
+
+- NEVER add "Co-authored-by" trailers to commit messages
+- NEVER include Cursor or any AI assistant as a co-author in git commits
+- Keep commit messages clean and only include the actual commit content
+- Do not add any attribution to AI assistance in commit messages
+
+## Code Style
+
+- Follow conventional commit format for all commits
+- Use appropriate prefixes: feat:, fix:, refactor:, etc.
+- Keep commit messages concise but descriptive
