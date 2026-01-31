@@ -2,6 +2,7 @@ package dev.atinroy.backend.entity;
 
 import java.time.Instant;
 
+import jdk.jfr.Timestamp;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -30,4 +31,8 @@ public abstract class BaseEntity {
     @UpdateTimestamp
     @Column(nullable = false)
     private Instant updatedAt;
+
+    @Timestamp
+    @Column(nullable = false, updatable = false)
+    private Instant deletedAt;
 }
