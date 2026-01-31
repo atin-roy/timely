@@ -9,14 +9,12 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
 @Entity
-@Table(
-        name = "time_blocks",
-        indexes = {
-                @Index(name = "idx_user_purpose", columnList = "user_id, purpose"),
-                @Index(name = "idx_user_started_at", columnList = "user_id, started_at"),
-                @Index(name = "idx_tag_id", columnList = "tag_id")
-        }
-)
+@Table(name = "time_blocks", indexes = {
+        @Index(name = "idx_user_purpose", columnList = "user_id, purpose"),
+        @Index(name = "idx_user_started_at", columnList = "user_id, started_at"),
+        @Index(name = "idx_todo_id", columnList = "todo_id"),
+        @Index(name = "idx_tag_id", columnList = "tag_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,6 +23,23 @@ public class TimeBlock extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    /**
+     * Optional: The specific Todo being worked on.
+     * NULL for: breaks, general focus time, or when only tag is specified.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "todo_id")
+    private Todo todo;
+
+    /**
+     * Optional: Direct tag assignment (independent of todo).
+     * Used when: working on general tasks within a category but no specific todo.
+     * NULL for: breaks or uncategorized time.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tag_id")
+    private Tag tag;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -37,32 +52,11 @@ public class TimeBlock extends BaseEntity {
     @Column(nullable = false)
     private LocalDateTime startedAt;
 
-    private LocalDateTime endedAt; // NULL = currently running
+    private LocalDateTime endedAt;
 
-    /**
-     * For TIMER mode only - the intended duration when timer was started.
-     * NULL for STOPWATCH mode.
-     */
     private Long plannedDurationSeconds;
-
-    /**
-     * Actual duration calculated from startedAt and endedAt.
-     * Automatically calculated in lifecycle callbacks.
-     * NULL if the block is still running (endedAt is NULL).
-     */
     private Long actualDurationSeconds;
-
-    /**
-     * For TIMER mode only - whether the timer reached its planned duration.
-     * TRUE: User completed the full duration
-     * FALSE: User stopped early
-     * NULL: For STOPWATCH mode or still running
-     */
     private Boolean completed;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tag_id")
-    private Tag tag; // NULL = "General/Uncategorized"
 
     @Column(length = 500)
     private String notes;
@@ -76,6 +70,7 @@ public class TimeBlock extends BaseEntity {
     private void validateAndCalculate() {
         validateTemporalConstraints();
         validateModeConstraints();
+        validateTagTodoRelationship();
         calculateDuration();
         calculateCompletion();
     }
@@ -90,68 +85,69 @@ public class TimeBlock extends BaseEntity {
         }
 
         if (endedAt != null && endedAt.isBefore(startedAt)) {
-            throw new IllegalStateException(
-                    "TimeBlock cannot end before it starts (started: " + startedAt + ", ended: " + endedAt + ")"
-            );
-        }
-
-        if (endedAt != null && endedAt.isAfter(LocalDateTime.now().plusMinutes(1))) {
-            throw new IllegalStateException("TimeBlock cannot end in the future");
+            throw new IllegalStateException("TimeBlock cannot end before it starts");
         }
     }
 
     private void validateModeConstraints() {
-        if (mode == null) {
-            throw new IllegalStateException("TimeBlock must have a mode (TIMER or STOPWATCH)");
-        }
-
-        if (purpose == null) {
-            throw new IllegalStateException("TimeBlock must have a purpose (FOCUS, SHORT_BREAK, LONG_BREAK)");
-        }
-
-        // Stopwatch cannot have a planned duration
         if (mode == BlockMode.STOPWATCH && plannedDurationSeconds != null) {
-            throw new IllegalStateException("STOPWATCH mode cannot have a planned duration");
+            throw new IllegalStateException("STOPWATCH mode cannot have planned duration");
         }
 
-        // Timer must have a planned duration
         if (mode == BlockMode.TIMER && plannedDurationSeconds == null) {
-            throw new IllegalStateException("TIMER mode requires a planned duration");
+            throw new IllegalStateException("TIMER mode requires planned duration");
         }
 
-        // Planned duration must be positive
         if (plannedDurationSeconds != null && plannedDurationSeconds <= 0) {
             throw new IllegalStateException("Planned duration must be positive");
         }
     }
 
-    // ============================================
-    // Auto-calculation Methods
-    // ============================================
+    private void validateTagTodoRelationship() {
+        // Break blocks should have neither todo nor tag
+        if (purpose == BlockPurpose.SHORT_BREAK || purpose == BlockPurpose.LONG_BREAK) {
+            if (todo != null) {
+                throw new IllegalStateException("Break blocks cannot be associated with a todo");
+            }
+            if (tag != null) {
+                throw new IllegalStateException("Break blocks cannot have a tag");
+            }
+        }
+
+        // If todo is set and has a tag, timeblock MUST have the same tag
+        if (todo != null && todo.getTag() != null) {
+            if (tag == null) {
+                throw new IllegalStateException(
+                        "TimeBlock must have a tag when Todo has a tag (todo tag: " +
+                                todo.getTag().getId() + ")");
+            }
+            if (!todo.getTag().getId().equals(tag.getId())) {
+                throw new IllegalStateException(
+                        "TimeBlock tag must match Todo tag (todo has tag: " +
+                                todo.getTag().getId() + ", block has tag: " + tag.getId() + ")");
+            }
+        }
+
+        // If todo is set but has no tag, timeblock may have any tag or no tag (no
+        // validation needed)
+        // If todo is not set, timeblock may have any tag or no tag (no validation
+        // needed)
+    }
 
     private void calculateDuration() {
         if (startedAt != null && endedAt != null) {
             this.actualDurationSeconds = ChronoUnit.SECONDS.between(startedAt, endedAt);
-
-            // Sanity check
-            if (this.actualDurationSeconds < 0) {
-                throw new IllegalStateException("Calculated duration cannot be negative");
-            }
         } else {
-            // Block is still running
             this.actualDurationSeconds = null;
         }
     }
 
     private void calculateCompletion() {
-        // Only applicable to TIMER mode with a finished block
         if (mode == BlockMode.TIMER && endedAt != null && plannedDurationSeconds != null) {
-            // Allow a 5-second grace period (user might stop the timer 1-2 seconds early)
             long gracePeriodSeconds = 5;
             this.completed = actualDurationSeconds != null
                     && actualDurationSeconds >= (plannedDurationSeconds - gracePeriodSeconds);
         } else {
-            // STOPWATCH mode or still running - completion doesn't apply
             this.completed = null;
         }
     }
@@ -161,15 +157,23 @@ public class TimeBlock extends BaseEntity {
     // ============================================
 
     /**
-     * Check if this time block is currently running
+     * Get the effective tag for this time block.
+     * Priority:
+     * 1. Todo's tag (if todo exists and has tag)
+     * 2. Direct tag assignment
+     * 3. NULL (uncategorized)
      */
+    public Tag getEffectiveTag() {
+        if (todo != null && todo.getTag() != null) {
+            return todo.getTag();
+        }
+        return tag;
+    }
+
     public boolean isActive() {
         return endedAt == null;
     }
 
-    /**
-     * Get the current duration (for active blocks) or final duration (for ended blocks)
-     */
     public Long getCurrentDurationSeconds() {
         if (endedAt != null) {
             return actualDurationSeconds;
@@ -182,10 +186,6 @@ public class TimeBlock extends BaseEntity {
         return 0L;
     }
 
-    /**
-     * For TIMER mode: get remaining time in seconds
-     * Returns NULL for STOPWATCH mode or ended blocks
-     */
     public Long getRemainingSeconds() {
         if (mode != BlockMode.TIMER || endedAt != null || plannedDurationSeconds == null) {
             return null;
@@ -196,9 +196,6 @@ public class TimeBlock extends BaseEntity {
         return Math.max(0, remaining);
     }
 
-    /**
-     * Check if a timer has exceeded its planned duration (for overrun detection)
-     */
     public boolean hasOverrun() {
         if (mode != BlockMode.TIMER || plannedDurationSeconds == null) {
             return false;
