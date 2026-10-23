@@ -1,0 +1,3 @@
+# The server owns the running timer
+
+Timely has web, mobile, desktop and CLI clients, and a user may start a session on one and check it on another. Instead of each client keeping its own timer and syncing it, a running session is just a session row with no end, and every client shows elapsed time as now minus its start. Countdowns are ended by the server, which treats one whose planned end has passed as ended whether or not any client is open; clients only schedule a local notification for the planned end, because mobile platforms suspend background apps and an in-app timer can't be trusted to fire.
