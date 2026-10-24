@@ -36,4 +36,6 @@ public class PomodoroCycle {
 
     @Generated
     private Instant createdAt;
+
+    private Instant endedAt;
 }
