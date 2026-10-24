@@ -1,10 +1,11 @@
 package com.atinroy.timely.user;
 
+import com.atinroy.timely.common.ConflictException;
+import com.atinroy.timely.common.Timezones;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.ZoneId;
 import java.util.Optional;
 
 @Service
@@ -23,12 +24,12 @@ public class UserService {
     @Transactional
     public User create(String username, String email, String timezone) {
         if (users.findByEmailIgnoreCase(email).isPresent()) {
-            throw new EmailTakenException();
+            throw new ConflictException("email-taken");
         }
         User user = new User();
         user.setUsername(username);
         user.setEmail(email);
-        user.setTimezone(requireRegionTimezone(timezone));
+        user.setTimezone(Timezones.requireRegion(timezone));
         return users.save(user);
     }
 
@@ -40,7 +41,7 @@ public class UserService {
             user.setUsername(username);
         }
         if (timezone != null) {
-            user.setTimezone(requireRegionTimezone(timezone));
+            user.setTimezone(Timezones.requireRegion(timezone));
         }
         return user;
     }
@@ -55,13 +56,5 @@ public class UserService {
         user.setLongBreakMinutes(longBreakMinutes);
         user.setPomodorosPerLongBreak(pomodorosPerLongBreak);
         return user;
-    }
-
-    // Region names only. Offsets like "+05:30" parse in Java but mean the opposite sign to Postgres's AT TIME ZONE.
-    private static String requireRegionTimezone(String timezone) {
-        if (!ZoneId.getAvailableZoneIds().contains(timezone)) {
-            throw new IllegalArgumentException("Unknown timezone: " + timezone);
-        }
-        return timezone;
     }
 }
