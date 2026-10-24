@@ -1,0 +1,1234 @@
+openapi: 3.1.2
+info:
+  title: Timely API
+  version: 0.1.0
+  description: >
+    A personal focus tracker. Users time their work against their own activities and see how much
+    time each one got per day.
+
+
+    Every endpoint except signup and login needs a login token: `Authorization: Bearer <token>`
+    for mobile, desktop and CLI clients, or the `timely_token` cookie for the web app. All data is
+    scoped to the calling user, and another user's resource is reported as 404.
+
+
+    Errors are `application/problem+json` (RFC 9457). Clients branch on `code`, not on `title`.
+servers:
+  - url: https://api.timely.atinroy.com/v1
+  - url: http://localhost:8080/v1
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+tags:
+  - name: Auth
+    description: Signup, login and logout.
+  - name: Users
+    description: The current user's profile and pomodoro settings.
+  - name: Activities
+    description: The things a user spends time on.
+  - name: Sessions
+    description: Timed and logged focus and break sessions.
+  - name: Pomodoro
+    description: Repeating cycles of focus and break countdowns.
+  - name: Stats
+    description: Totals derived from sessions.
+paths:
+  /auth/signup:
+    post:
+      tags: [Auth]
+      operationId: signup
+      summary: Creates an account and logs it in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "201":
+          $ref: "#/components/responses/LoggedIn"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Logs in with email and password
+      description: >
+        An unknown email and a wrong password get the same `401` with code `invalid-credentials`.
+        Rate-limited per IP and per email.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/LoggedIn"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Ends the login token used for this request
+      responses:
+        "204":
+          description: Logged out
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      operationId: logoutAll
+      summary: Ends every login token of the current user, on all devices
+      responses:
+        "204":
+          description: Logged out everywhere
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me:
+    get:
+      tags: [Users]
+      operationId: getMe
+      summary: Returns the current user
+      responses:
+        "200":
+          description: The current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [Users]
+      operationId: updateMe
+      summary: Updates the current user's profile or pomodoro settings
+      description: >
+        Changing the timezone doesn't move past sessions. Changing pomodoro settings affects future
+        cycles only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: The updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /activities:
+    get:
+      tags: [Activities]
+      operationId: listActivities
+      summary: Lists the current user's activities
+      parameters:
+        - name: includeArchived
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Activities ordered by name
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Activities]
+      operationId: createActivity
+      summary: Creates an activity
+      description: >
+        Names are unique per user regardless of capitalisation, archived activities included.
+        Reusing the name of an archived activity unarchives it, applies the given colour and returns
+        `200`. Reusing the name of an active one fails with `409` and code `activity-name-taken`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityRequest"
+      responses:
+        "200":
+          description: An archived activity with this name was unarchived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+        "201":
+          description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /activities/{activityId}:
+    parameters:
+      - $ref: "#/components/parameters/ActivityId"
+    get:
+      tags: [Activities]
+      operationId: getActivity
+      summary: Returns an activity
+      responses:
+        "200":
+          description: The activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Activities]
+      operationId: updateActivity
+      summary: Renames, recolours, archives or unarchives an activity
+      description: >
+        Renaming keeps the activity's history. Archiving stops any running session on it. A name
+        that another activity of the user already has fails with `409` and code
+        `activity-name-taken`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivityRequest"
+      responses:
+        "200":
+          description: The updated activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Activities]
+      operationId: deleteActivity
+      summary: Wipes an activity together with all of its sessions
+      description: >
+        This is the only way history is removed, and it can't be undone. Archive the activity
+        instead to hide it and keep its history. Pomodoro cycles left with no sessions are deleted
+        as well.
+      responses:
+        "204":
+          description: Activity and its sessions deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sessions:
+    get:
+      tags: [Sessions]
+      operationId: listSessions
+      summary: Lists the current user's sessions, newest first
+      parameters:
+        - name: from
+          in: query
+          description: Only sessions that started at or after this instant.
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Only sessions that started before this instant.
+          schema:
+            type: string
+            format: date-time
+        - name: kind
+          in: query
+          schema:
+            $ref: "#/components/schemas/SessionKind"
+        - name: activityId
+          in: query
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - name: pomodoroCycleId
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: One page of sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Sessions]
+      operationId: logSession
+      summary: Adds a session after the fact
+      description: >
+        The result is a logged session: no mode, never completed, never a pomodoro. Fails with `409`
+        and code `session-overlap` if it overlaps an existing session. A focus session needs an
+        activity and a break session must not have one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogSessionRequest"
+      responses:
+        "201":
+          description: Session logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /sessions/current:
+    get:
+      tags: [Sessions]
+      operationId: getCurrentSession
+      summary: Returns the running session, if any
+      description: >
+        Clients show elapsed time as now minus `startedAt`. A countdown past its planned end is no
+        longer running, whether or not the server has written its end yet.
+      responses:
+        "200":
+          description: The running session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "204":
+          description: Nothing is running
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /sessions/current/stop:
+    post:
+      tags: [Sessions]
+      operationId: stopCurrentSession
+      summary: Stops the running session now
+      description: >
+        Pausing is stopping, and resuming is starting a new session on the same activity. Stopping
+        a session that belongs to a pomodoro cycle also ends the cycle. A countdown stopped before
+        its planned length is incomplete, but its time still counts. Fails with `404` and code
+        `no-running-session` if nothing is running.
+      responses:
+        "200":
+          description: The stopped session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /sessions/stopwatch/start:
+    post:
+      tags: [Sessions]
+      operationId: startStopwatch
+      summary: Starts a stopwatch focus session
+      description: >
+        A stopwatch has no planned length and runs until stopped. One left running past a threshold
+        is flagged with `needsTrim`, never stopped on its own. To switch activity, stop the running
+        session and start a new one. Fails with `409` and code `session-already-running` if the user
+        already has a running session, or `activity-archived` if the activity is archived.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartStopwatchRequest"
+      responses:
+        "201":
+          description: Stopwatch session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /sessions/countdown/start:
+    post:
+      tags: [Sessions]
+      operationId: startCountdown
+      summary: Starts a countdown focus session
+      description: >
+        The server ends the countdown when its planned length runs out, even if no client is open.
+        Clients only schedule a local notification for the planned end. Errors are the same as for
+        starting a stopwatch.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartCountdownRequest"
+      responses:
+        "201":
+          description: Countdown session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /sessions/break/start:
+    post:
+      tags: [Sessions]
+      operationId: startBreak
+      summary: Starts a break session outside a pomodoro cycle
+      description: >
+        A break belongs to no activity and is never counted as focus time. With `plannedSeconds` it
+        is a countdown, without it a stopwatch. Fails with `409` and code `session-already-running`
+        if the user already has a running session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartBreakRequest"
+      responses:
+        "201":
+          description: Break session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /sessions/{sessionId}:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      tags: [Sessions]
+      operationId: getSession
+      summary: Returns a session
+      responses:
+        "200":
+          description: The session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Sessions]
+      operationId: updateSession
+      summary: Corrects a session's start, end or activity
+      description: >
+        A timed session stays timed after a correction, and `completed` is recomputed. `activityId`
+        is only allowed on focus sessions. An edit that would overlap another session fails with
+        `409` and code `session-overlap`. `endedAt` can't be set on a running session (`409`,
+        `session-running`); stop it instead. Daily stats change with the edit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSessionRequest"
+      responses:
+        "200":
+          description: The updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Sessions]
+      operationId: deleteSession
+      summary: Deletes a session
+      description: >
+        A pomodoro cycle keeps whatever sessions remain, and a cycle with none is deleted. Deleting
+        the running session stops the timer.
+      responses:
+        "204":
+          description: Session deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /pomodoro/cycles:
+    post:
+      tags: [Pomodoro]
+      operationId: startPomodoroCycle
+      summary: Starts a pomodoro cycle with its first focus session
+      description: >
+        Copies the user's pomodoro settings into the cycle and starts a countdown focus session of
+        `focusMinutes` on the given activity. When a focus session ends, the server starts the
+        break after it by itself: a long break after every `pomodorosPerLongBreak` completed
+        pomodoros, a short one otherwise. The next focus session waits for the user (see
+        `startNextPomodoroFocus`). Fails with `409` and code `session-already-running` if the user
+        already has a running session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartPomodoroCycleRequest"
+      responses:
+        "201":
+          description: Cycle started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PomodoroCycle"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /pomodoro/cycles/current:
+    get:
+      tags: [Pomodoro]
+      operationId: getCurrentPomodoroCycle
+      summary: Returns the user's cycle that hasn't ended, if any
+      responses:
+        "200":
+          description: The current cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PomodoroCycle"
+        "204":
+          description: No cycle is in progress
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /pomodoro/cycles/{cycleId}:
+    parameters:
+      - $ref: "#/components/parameters/CycleId"
+    get:
+      tags: [Pomodoro]
+      operationId: getPomodoroCycle
+      summary: Returns a pomodoro cycle
+      description: List its sessions with `GET /sessions?pomodoroCycleId=`.
+      responses:
+        "200":
+          description: The cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PomodoroCycle"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /pomodoro/cycles/{cycleId}/focus:
+    parameters:
+      - $ref: "#/components/parameters/CycleId"
+    post:
+      tags: [Pomodoro]
+      operationId: startNextPomodoroFocus
+      summary: Starts the next focus session of a cycle
+      description: >
+        Allowed while the cycle is `waiting`. The activity defaults to the previous focus session's.
+        Fails with `409` and code `cycle-not-waiting` if a session is running or the cycle has
+        ended.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartNextPomodoroFocusRequest"
+      responses:
+        "201":
+          description: Focus session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /pomodoro/cycles/{cycleId}/stop:
+    parameters:
+      - $ref: "#/components/parameters/CycleId"
+    post:
+      tags: [Pomodoro]
+      operationId: stopPomodoroCycle
+      summary: Ends a cycle and stops its running session, if any
+      description: Fails with `409` and code `cycle-ended` if the cycle has already ended.
+      responses:
+        "200":
+          description: The ended cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PomodoroCycle"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /stats/daily:
+    get:
+      tags: [Stats]
+      operationId: getDailyStats
+      summary: Returns focus and break time per day
+      description: >
+        Always derived from sessions, so edits and deletes show up immediately, and a running
+        session counts up to now. A day is a calendar day in the timezone the session was started
+        in. A session that crosses local midnight contributes its time to each day it touches but
+        counts as one session on the day it started. Days with no sessions are left out.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: First day, inclusive.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: Last day, inclusive. At most 366 days after `from`.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: One entry per day that has sessions, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyStats"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: An opaque login token from signup or login.
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: timely_token
+      description: >
+        The same token in an HttpOnly, Secure, SameSite=Lax cookie, set by signup and login for
+        browsers. Only this path needs CSRF protection.
+
+  parameters:
+    ActivityId:
+      name: activityId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    CycleId:
+      name: cycleId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
+  responses:
+    LoggedIn:
+      description: Logged in. The token is also set as the `timely_token` cookie.
+      headers:
+        Set-Cookie:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AuthResponse"
+    BadRequest:
+      description: >
+        Malformed or invalid request. Code `bad-request`, with `errors` naming each bad field.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: Missing, expired or invalid credentials. Code `unauthorized` or `invalid-credentials`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: >
+        The resource doesn't exist or isn't the user's. Code `not-found`, or `no-running-session`
+        where the operation needs a running session.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: >
+        The request clashes with the current state. Codes: `session-already-running`,
+        `session-overlap`, `session-running`, `activity-archived`, `activity-name-taken`,
+        `email-taken`, `cycle-not-waiting`, `cycle-ended`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    TooManyRequests:
+      description: Rate limit hit. Code `too-many-requests`.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            format: int32
+            description: Seconds to wait before retrying.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 problem details with a machine-readable `code`.
+      required: [title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        code:
+          type: string
+          examples: [session-already-running]
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: array
+          description: Per-field validation failures, set on `bad-request`.
+          items:
+            $ref: "#/components/schemas/FieldError"
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    Timezone:
+      type: string
+      minLength: 1
+      maxLength: 64
+      examples: [Asia/Kolkata]
+      description: An IANA timezone name.
+    Color:
+      type: string
+      pattern: "^#[0-9a-fA-F]{6}$"
+      examples: ["#4f46e5"]
+
+    SignupRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 8
+          maxLength: 128
+          description: No composition rules. The upper bound keeps hashing cost bounded.
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+          description: The user's starting timezone. Defaults to UTC.
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        deviceName:
+          type: string
+          maxLength: 100
+          description: Stored with the token so the user can recognise their logins.
+    AuthResponse:
+      type: object
+      required: [token, expiresAt, user]
+      properties:
+        token:
+          type: string
+          description: Opaque bearer token. Shown once; the server keeps only its hash.
+        expiresAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/User"
+
+    PomodoroSettings:
+      type: object
+      required: [focusMinutes, shortBreakMinutes, longBreakMinutes, pomodorosPerLongBreak]
+      properties:
+        focusMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 1440
+          default: 25
+        shortBreakMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 1440
+          default: 5
+        longBreakMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 1440
+          default: 15
+        pomodorosPerLongBreak:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 4
+    User:
+      type: object
+      required: [id, username, email, timezone, pomodoroSettings, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int32
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+          description: Where the user currently is. Each new session records it.
+        pomodoroSettings:
+          $ref: "#/components/schemas/PomodoroSettings"
+        createdAt:
+          type: string
+          format: date-time
+    UpdateUserRequest:
+      type: object
+      minProperties: 1
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+        pomodoroSettings:
+          $ref: "#/components/schemas/PomodoroSettings"
+
+    Activity:
+      type: object
+      description: A named, coloured thing a user spends time on.
+      required: [id, name, color, archivedAt, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
+        color:
+          $ref: "#/components/schemas/Color"
+        archivedAt:
+          type: [string, "null"]
+          format: date-time
+          description: Set while the activity is archived.
+        createdAt:
+          type: string
+          format: date-time
+    CreateActivityRequest:
+      type: object
+      required: [name, color]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        color:
+          $ref: "#/components/schemas/Color"
+    UpdateActivityRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        color:
+          $ref: "#/components/schemas/Color"
+        archived:
+          type: boolean
+          description: True archives the activity, false unarchives it.
+
+    SessionKind:
+      type: string
+      enum: [focus, break]
+    SessionSource:
+      type: string
+      enum: [timed, logged]
+    SessionMode:
+      type: string
+      enum: [stopwatch, countdown]
+    Session:
+      type: object
+      description: >
+        One continuous span of time. A focus session has an activityId and a break session has none.
+        A logged session has no mode, and a countdown has plannedSeconds.
+      required:
+        - id
+        - kind
+        - activityId
+        - source
+        - mode
+        - plannedSeconds
+        - pomodoroCycleId
+        - timezone
+        - startedAt
+        - endedAt
+        - completed
+        - needsTrim
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          $ref: "#/components/schemas/SessionKind"
+        activityId:
+          type: [integer, "null"]
+          format: int32
+        source:
+          $ref: "#/components/schemas/SessionSource"
+        mode:
+          oneOf:
+            - $ref: "#/components/schemas/SessionMode"
+            - type: "null"
+        plannedSeconds:
+          type: [integer, "null"]
+          format: int32
+        pomodoroCycleId:
+          type: [integer, "null"]
+          format: int64
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+          description: The timezone the user was in. It fixes the session's days for good.
+        startedAt:
+          type: string
+          format: date-time
+          description: Set by the server clock, except on logged sessions and corrections.
+        endedAt:
+          type: [string, "null"]
+          format: date-time
+          description: >
+            Null while the session is running. A countdown past its planned end reports the
+            planned end here.
+        completed:
+          type: boolean
+          description: Computed by the server. True for a countdown that ran its full planned length.
+        needsTrim:
+          type: boolean
+          description: >
+            True for a stopwatch left running past the server's threshold, so the user can trim it.
+            It is never stopped automatically.
+    SessionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Session"
+        nextCursor:
+          type: [string, "null"]
+          description: Null on the last page.
+    StartStopwatchRequest:
+      type: object
+      required: [activityId, timezone]
+      properties:
+        activityId:
+          type: integer
+          format: int32
+          minimum: 1
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+          description: The timezone the user is in. It fixes the session's days for good.
+    StartCountdownRequest:
+      type: object
+      required: [activityId, timezone, plannedSeconds]
+      properties:
+        activityId:
+          type: integer
+          format: int32
+          minimum: 1
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+        plannedSeconds:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 86400
+    StartBreakRequest:
+      type: object
+      required: [timezone]
+      properties:
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+        plannedSeconds:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 86400
+          description: Makes the break a countdown. Omit for a stopwatch break.
+    LogSessionRequest:
+      type: object
+      required: [kind, timezone, startedAt, endedAt]
+      properties:
+        kind:
+          $ref: "#/components/schemas/SessionKind"
+        activityId:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Required for a focus session, not allowed for a break.
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          description: Must be after startedAt.
+    UpdateSessionRequest:
+      type: object
+      minProperties: 1
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+        activityId:
+          type: integer
+          format: int32
+          minimum: 1
+
+    PomodoroCycle:
+      type: object
+      description: >
+        A repeating sequence of countdown focus sessions with countdown break sessions between them.
+        The cycle isn't a session itself.
+      required: [id, settings, completedPomodoros, status, currentSession, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        settings:
+          $ref: "#/components/schemas/PomodoroSettings"
+          description: A snapshot of the user's settings when the cycle started.
+        completedPomodoros:
+          type: integer
+          format: int32
+          minimum: 0
+        status:
+          type: string
+          enum: [running, waiting, ended]
+          description: >
+            `running`: a focus or break session is running. `waiting`: a break has ended and the
+            next focus session waits for the user. `ended`: the user stopped the cycle, or didn't
+            start the next focus session within one long-break length of a break ending.
+        currentSession:
+          oneOf:
+            - $ref: "#/components/schemas/Session"
+            - type: "null"
+          description: The running session, null unless the status is `running`.
+        createdAt:
+          type: string
+          format: date-time
+    StartPomodoroCycleRequest:
+      type: object
+      required: [activityId, timezone]
+      properties:
+        activityId:
+          type: integer
+          format: int32
+          minimum: 1
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+    StartNextPomodoroFocusRequest:
+      type: object
+      required: [timezone]
+      properties:
+        activityId:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Defaults to the previous focus session's activity.
+        timezone:
+          $ref: "#/components/schemas/Timezone"
+
+    DailyStats:
+      type: object
+      required: [day, activities, breakSeconds]
+      properties:
+        day:
+          type: string
+          format: date
+        activities:
+          type: array
+          description: Focus time per activity, including archived ones.
+          items:
+            $ref: "#/components/schemas/ActivityDailyStats"
+        breakSeconds:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The day's total break time, never counted as focus time.
+    ActivityDailyStats:
+      type: object
+      required: [activityId, totalSeconds, totalSessions]
+      properties:
+        activityId:
+          type: integer
+          format: int32
+        totalSeconds:
+          type: integer
+          format: int64
+          minimum: 0
+        totalSessions:
+          type: integer
+          format: int32
+          minimum: 0
