@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: timely_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - timely_data:/var/lib/postgresql
+
+volumes:
+  timely_data:
