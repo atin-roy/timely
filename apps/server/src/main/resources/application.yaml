@@ -1,0 +1,17 @@
+server:
+  port: 3000
+
+spring:
+  application:
+    name: timely
+  datasource:
+    url: jdbc:postgresql://localhost:5432/timely_db
+    username: postgres
+    password: postgres
+    hikari:
+      # Fail a health check fast instead of waiting the default 30s for a connection.
+      connection-timeout: 2000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false

@@ -1,4 +1,3 @@
--- +goose Up
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 CREATE TYPE session_kind AS ENUM ('focus', 'break');
@@ -87,14 +86,12 @@ CREATE INDEX ON sessions (user_id, started_at);
 CREATE INDEX ON sessions (activity_id);
 CREATE INDEX ON sessions (pomodoro_cycle_id);
 
--- +goose StatementBegin
 CREATE FUNCTION set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
 $$;
--- +goose StatementEnd
 
 CREATE TRIGGER users_set_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -103,7 +100,6 @@ CREATE TRIGGER sessions_set_updated_at BEFORE UPDATE ON sessions
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- A trigger rather than app code, so cascaded deletes (like wiping an activity) are covered too.
--- +goose StatementBegin
 CREATE FUNCTION delete_empty_pomodoro_cycle() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   DELETE FROM pomodoro_cycles c
@@ -112,7 +108,6 @@ BEGIN
   RETURN NULL;
 END;
 $$;
--- +goose StatementEnd
 
 CREATE TRIGGER sessions_delete_empty_pomodoro_cycle AFTER DELETE ON sessions
   FOR EACH ROW WHEN (OLD.pomodoro_cycle_id IS NOT NULL)
@@ -153,15 +148,3 @@ CROSS JOIN LATERAL (
 ) d
 WHERE least(b.session_end, d.day_end) > greatest(s.started_at, d.day_start)
 GROUP BY s.user_id, s.kind, s.activity_id, d.day;
-
--- +goose Down
-DROP VIEW daily_stats;
-DROP TABLE sessions;
-DROP TABLE pomodoro_cycles;
-DROP TABLE activities;
-DROP TABLE users;
-DROP FUNCTION delete_empty_pomodoro_cycle;
-DROP FUNCTION set_updated_at;
-DROP TYPE session_mode;
-DROP TYPE session_kind;
-DROP TYPE session_source;

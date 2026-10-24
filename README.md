@@ -18,8 +18,9 @@ Early days. The groundwork is in place and the first working version is being bu
 
 ## Running it locally
 
-You'll need Go and Docker installed.
+You'll need Java 25 and Docker installed.
 
 1. Start the database: `docker compose up -d`
-2. Copy `apps/server/.env.example` to `apps/server/.env`
-3. From `apps/server`, set up the tables: `goose up`
+2. From `apps/server`, start the server: `./mvnw spring-boot:run`. Flyway creates the tables on startup.
+
+The server listens on port 3000. Override the database with `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD`.
