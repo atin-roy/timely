@@ -1,3 +1,8 @@
+server:
+  # The spec's base path. The generated interfaces map paths without it.
+  servlet:
+    context-path: /v1
+
 spring:
   application:
     name: timely
