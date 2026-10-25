@@ -42,7 +42,7 @@ public class AuthController implements AuthApi {
 
     @Override
     public ResponseEntity<Void> logoutAll() {
-        auth.logoutAll(AuthPrincipal.current().userId());
+        auth.logoutAll(AuthPrincipal.currentUserId());
         return loggedOut();
     }
 

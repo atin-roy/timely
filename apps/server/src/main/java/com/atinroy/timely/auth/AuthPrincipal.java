@@ -7,4 +7,8 @@ public record AuthPrincipal(Integer userId, byte[] tokenHash) {
     public static AuthPrincipal current() {
         return (AuthPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
+
+    public static Integer currentUserId() {
+        return current().userId();
+    }
 }

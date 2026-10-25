@@ -16,7 +16,7 @@ public class UserController implements UsersApi {
 
     @Override
     public ResponseEntity<UserDto> getMe() {
-        return ResponseEntity.ok(UserMapper.toDto(getCurrentUser()));
+        return ResponseEntity.ok(UserMapper.toDto(users.get(AuthPrincipal.currentUserId())));
     }
 
     @Override
@@ -25,13 +25,7 @@ public class UserController implements UsersApi {
         PomodoroSettings settings = dto == null ? null : new PomodoroSettings(
                 dto.getFocusMinutes(), dto.getShortBreakMinutes(),
                 dto.getLongBreakMinutes(), dto.getPomodorosPerLongBreak());
-        User user = users.update(AuthPrincipal.current().userId(), request.getUsername(), request.getTimezone(), settings);
+        User user = users.update(AuthPrincipal.currentUserId(), request.getUsername(), request.getTimezone(), settings);
         return ResponseEntity.ok(UserMapper.toDto(user));
-    }
-
-    private User getCurrentUser() {
-        AuthPrincipal principal = AuthPrincipal.current();
-        Integer userId = principal.userId();
-        return users.get(userId);
     }
 }
