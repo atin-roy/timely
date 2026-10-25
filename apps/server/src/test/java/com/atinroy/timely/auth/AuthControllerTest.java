@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -146,6 +147,20 @@ class AuthControllerTest {
                 .andReturn().getResponse().getContentAsString();
 
         assertThat(unknownEmail).isEqualTo(wrongPassword);
+    }
+
+    @Test
+    void theReturnedExpiryIsExactlyWhatIsStored() throws Exception {
+        MvcResult result = mvc.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON).content("""
+                        {"username": "atin", "email": "%s", "password": "%s"}
+                        """.formatted(email, PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String returned = JsonPath.read(result.getResponse().getContentAsString(), "$.expiresAt");
+        OffsetDateTime stored = jdbc.queryForObject("select expires_at from auth_tokens where token_hash = ?",
+                OffsetDateTime.class, (Object) sha256(token(result)));
+        assertThat(OffsetDateTime.parse(returned).toInstant()).isEqualTo(stored.toInstant());
     }
 
     @Test

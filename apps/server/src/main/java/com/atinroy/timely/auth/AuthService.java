@@ -13,6 +13,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Optional;
 
@@ -90,7 +91,7 @@ public class AuthService {
         row.setUser(user);
         row.setTokenHash(hash(token));
         row.setDeviceName(deviceName);
-        row.setExpiresAt(Instant.now().plus(TOKEN_LIFETIME));
+        row.setExpiresAt(Instant.now().truncatedTo(ChronoUnit.MICROS).plus(TOKEN_LIFETIME));
         tokens.save(row);
         return new Login(token, row.getExpiresAt(), user);
     }

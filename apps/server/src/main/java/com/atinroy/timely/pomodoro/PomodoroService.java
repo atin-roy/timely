@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 @Service
@@ -36,7 +37,7 @@ public class PomodoroService {
     public CycleState start(Integer userId, Integer activityId, String timezone) {
         current(userId).ifPresent(state -> {
             if (state.status() == Status.WAITING) {
-                state.cycle().setEndedAt(Instant.now());
+                state.cycle().setEndedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
             }
         });
         User user = userService.get(userId);
@@ -90,7 +91,7 @@ public class PomodoroService {
         switch (state(cycle).status()) {
             case ENDED -> throw new ConflictException("cycle-ended");
             case RUNNING -> sessionService.stop(userId);
-            case WAITING -> cycle.setEndedAt(Instant.now());
+            case WAITING -> cycle.setEndedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
         }
         return state(cycle);
     }
@@ -118,7 +119,7 @@ public class PomodoroService {
         if (waiting) {
             return new CycleState(cycle, Status.WAITING, completed, null);
         }
-        cycle.setEndedAt(Instant.now());
+        cycle.setEndedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
         return new CycleState(cycle, Status.ENDED, completed, null);
     }
 }

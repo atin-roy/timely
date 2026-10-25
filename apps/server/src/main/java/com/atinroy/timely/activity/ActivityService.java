@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -69,7 +70,7 @@ public class ActivityService {
         if (archived != null) {
             if (archived && activity.getArchivedAt() == null) {
                 sessionService.stopIfRunningOn(userId, id);
-                activity.setArchivedAt(Instant.now());
+                activity.setArchivedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
             } else if (!archived) {
                 activity.setArchivedAt(null);
             }
