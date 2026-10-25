@@ -33,9 +33,10 @@ public class UserService {
         return users.save(user);
     }
 
-    // A null argument leaves that field as it is.
+    // A null argument leaves that field as it is. Settings replace all four values at once;
+    // cycles already started keep the settings they copied.
     @Transactional
-    public User updateProfile(Integer id, String username, String timezone) {
+    public User update(Integer id, String username, String timezone, PomodoroSettings settings) {
         User user = get(id);
         if (username != null) {
             user.setUsername(username);
@@ -43,18 +44,12 @@ public class UserService {
         if (timezone != null) {
             user.setTimezone(Timezones.requireRegion(timezone));
         }
-        return user;
-    }
-
-    // Replaces all four settings. Cycles already started keep the settings they copied.
-    @Transactional
-    public User updatePomodoroSettings(Integer id, int focusMinutes, int shortBreakMinutes,
-                                       int longBreakMinutes, int pomodorosPerLongBreak) {
-        User user = get(id);
-        user.setFocusMinutes(focusMinutes);
-        user.setShortBreakMinutes(shortBreakMinutes);
-        user.setLongBreakMinutes(longBreakMinutes);
-        user.setPomodorosPerLongBreak(pomodorosPerLongBreak);
+        if (settings != null) {
+            user.setFocusMinutes(settings.focusMinutes());
+            user.setShortBreakMinutes(settings.shortBreakMinutes());
+            user.setLongBreakMinutes(settings.longBreakMinutes());
+            user.setPomodorosPerLongBreak(settings.pomodorosPerLongBreak());
+        }
         return user;
     }
 }

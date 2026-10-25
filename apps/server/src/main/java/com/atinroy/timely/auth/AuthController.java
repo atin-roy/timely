@@ -3,10 +3,8 @@ package com.atinroy.timely.auth;
 import com.atinroy.timely.api.AuthApi;
 import com.atinroy.timely.api.model.AuthResponseDto;
 import com.atinroy.timely.api.model.LoginRequestDto;
-import com.atinroy.timely.api.model.PomodoroSettingsDto;
 import com.atinroy.timely.api.model.SignupRequestDto;
-import com.atinroy.timely.api.model.UserDto;
-import com.atinroy.timely.user.User;
+import com.atinroy.timely.user.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -54,7 +52,7 @@ public class AuthController implements AuthApi {
         AuthResponseDto body = new AuthResponseDto()
                 .token(login.token())
                 .expiresAt(OffsetDateTime.ofInstant(login.expiresAt(), ZoneOffset.UTC))
-                .user(toDto(login.user()));
+                .user(UserMapper.toDto(login.user()));
         return ResponseEntity.status(status).header(HttpHeaders.SET_COOKIE, cookie.toString()).body(body);
     }
 
@@ -70,19 +68,5 @@ public class AuthController implements AuthApi {
                 .path("/")
                 .maxAge(maxAge)
                 .build();
-    }
-
-    private UserDto toDto(User user) {
-        return new UserDto()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .timezone(user.getTimezone())
-                .pomodoroSettings(new PomodoroSettingsDto()
-                        .focusMinutes(user.getFocusMinutes())
-                        .shortBreakMinutes(user.getShortBreakMinutes())
-                        .longBreakMinutes(user.getLongBreakMinutes())
-                        .pomodorosPerLongBreak(user.getPomodorosPerLongBreak()))
-                .createdAt(OffsetDateTime.ofInstant(user.getCreatedAt(), ZoneOffset.UTC));
     }
 }
