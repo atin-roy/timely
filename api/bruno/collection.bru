@@ -1,0 +1,14 @@
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Run **Auth / Signup** once, then **Auth / Login**. Both save the token for the other requests.
+  Create, start and log requests save the new id (`activityId`, `sessionId`, `cycleId`) for the requests that need it.
+
+  Set `password` in the Local environment's secret variables. Bruno keeps secret values out of the files.
+}

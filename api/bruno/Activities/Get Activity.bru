@@ -1,0 +1,11 @@
+meta {
+  name: Get Activity
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/activities/{{activityId}}
+  body: none
+  auth: inherit
+}

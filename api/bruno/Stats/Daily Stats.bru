@@ -1,0 +1,23 @@
+meta {
+  name: Daily Stats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/stats/daily?from={{statsFrom}}&to={{statsTo}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  from: {{statsFrom}}
+  to: {{statsTo}}
+}
+
+script:pre-request {
+  // The last seven days, today included.
+  const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+  bru.setVar("statsFrom", day(-6));
+  bru.setVar("statsTo", day(0));
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Start Countdown
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/sessions/countdown/start
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "activityId": {{activityId}},
+    "timezone": "{{timezone}}",
+    "plannedSeconds": 1500
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("sessionId", res.body.id);
+  }
+}

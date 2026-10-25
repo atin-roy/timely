@@ -1,0 +1,28 @@
+meta {
+  name: Start Break
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/sessions/break/start
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "timezone": "{{timezone}}",
+    "plannedSeconds": 300
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("sessionId", res.body.id);
+  }
+}
+
+docs {
+  Remove `plannedSeconds` for an open-ended stopwatch break.
+}

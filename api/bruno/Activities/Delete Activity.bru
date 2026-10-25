@@ -1,0 +1,15 @@
+meta {
+  name: Delete Activity
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/activities/{{activityId}}
+  body: none
+  auth: inherit
+}
+
+docs {
+  Also deletes every session on the activity. Archive it with Update Activity to keep its history.
+}

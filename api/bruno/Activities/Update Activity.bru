@@ -1,0 +1,18 @@
+meta {
+  name: Update Activity
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/activities/{{activityId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "color": "#16a34a",
+    "archived": false
+  }
+}

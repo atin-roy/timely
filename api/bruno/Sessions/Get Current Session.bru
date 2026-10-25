@@ -1,0 +1,11 @@
+meta {
+  name: Get Current Session
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/sessions/current
+  body: none
+  auth: inherit
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Start Next Focus
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/pomodoro/cycles/{{cycleId}}/focus
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "timezone": "{{timezone}}"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("sessionId", res.body.id);
+  }
+}
+
+docs {
+  Only while the cycle is `waiting`. Add `activityId` to switch activity; it defaults to the previous focus session's.
+}

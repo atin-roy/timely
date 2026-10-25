@@ -1,0 +1,21 @@
+meta {
+  name: Update Session
+  type: http
+  seq: 9
+}
+
+patch {
+  url: {{baseUrl}}/sessions/{{sessionId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "startedAt": "2026-10-20T09:15:00+05:30"
+  }
+}
+
+docs {
+  Also takes `endedAt` (not on a running session) and `activityId` (focus sessions only).
+}

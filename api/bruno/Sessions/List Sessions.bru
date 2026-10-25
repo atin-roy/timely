@@ -1,0 +1,31 @@
+meta {
+  name: List Sessions
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/sessions?limit=20
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 20
+  ~from: 2026-10-01T00:00:00Z
+  ~to: 2026-11-01T00:00:00Z
+  ~kind: focus
+  ~activityId: {{activityId}}
+  ~pomodoroCycleId: {{cycleId}}
+  ~cursor: {{nextCursor}}
+}
+
+script:post-response {
+  if (res.status === 200) {
+    bru.setVar("nextCursor", res.body.nextCursor);
+  }
+}
+
+docs {
+  Enable `cursor` to fetch the next page.
+}

@@ -1,0 +1,24 @@
+meta {
+  name: Create Activity
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/activities
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Coding",
+    "color": "#4f46e5"
+  }
+}
+
+script:post-response {
+  if (res.status === 200 || res.status === 201) {
+    bru.setVar("activityId", res.body.id);
+  }
+}

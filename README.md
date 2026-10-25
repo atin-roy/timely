@@ -23,4 +23,4 @@ You'll need Java 25 and Docker installed.
 1. Start the database: `docker compose up -d`
 2. From `apps/server`, start the server: `./mvnw spring-boot:run`. Flyway creates the tables on startup.
 
-The server listens on port 8080. Override the database with `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD`.
+The API is served at `http://localhost:8080/v1`. A [Bruno](https://www.usebruno.com) collection for it is in `api/bruno`. Override the database with `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD`.

@@ -1,0 +1,11 @@
+meta {
+  name: Stop Cycle
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/pomodoro/cycles/{{cycleId}}/stop
+  body: none
+  auth: inherit
+}

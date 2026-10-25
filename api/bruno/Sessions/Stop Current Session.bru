@@ -1,0 +1,11 @@
+meta {
+  name: Stop Current Session
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/sessions/current/stop
+  body: none
+  auth: inherit
+}
