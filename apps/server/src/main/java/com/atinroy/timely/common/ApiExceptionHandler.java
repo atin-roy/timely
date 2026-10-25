@@ -2,6 +2,7 @@ package com.atinroy.timely.common;
 
 import com.atinroy.timely.api.model.FieldErrorDto;
 import com.atinroy.timely.api.model.ProblemDto;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -43,6 +44,17 @@ public class ApiExceptionHandler {
         ProblemDto problem = body(HttpStatus.BAD_REQUEST, "bad-request", null);
         e.getBindingResult().getFieldErrors()
                 .forEach(f -> problem.addErrorsItem(new FieldErrorDto(f.getField(), f.getDefaultMessage())));
+        return response(HttpStatus.BAD_REQUEST, problem);
+    }
+
+    // Query parameter bounds, like a list's limit, are checked by method validation rather than on a request body.
+    @ExceptionHandler(ConstraintViolationException.class)
+    ResponseEntity<ProblemDto> invalidParameter(ConstraintViolationException e) {
+        ProblemDto problem = body(HttpStatus.BAD_REQUEST, "bad-request", null);
+        e.getConstraintViolations().forEach(v -> {
+            String path = v.getPropertyPath().toString();
+            problem.addErrorsItem(new FieldErrorDto(path.substring(path.lastIndexOf('.') + 1), v.getMessage()));
+        });
         return response(HttpStatus.BAD_REQUEST, problem);
     }
 
