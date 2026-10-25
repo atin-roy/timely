@@ -113,13 +113,16 @@ public class PomodoroService {
         }
         Session last = sessions.findFirstByPomodoroCycleIdOrderByStartedAtDesc(cycle.getId()).orElseThrow();
         Instant deadline = last.getEndedAt().plus(Duration.ofMinutes(cycle.getLongBreakMinutes()));
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         boolean waiting = last.getKind() == SessionKind.BREAK
                 && Boolean.TRUE.equals(last.getCompleted())
-                && Instant.now().isBefore(deadline);
+                && now.isBefore(deadline);
         if (waiting) {
             return new CycleState(cycle, Status.WAITING, completed, null);
         }
-        cycle.setEndedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
+        // A timed-out cycle ended at its deadline, however late it is noticed. The deadline can still be ahead
+        // when the last session isn't a completed break (say the break was deleted), so it never ends in the future.
+        cycle.setEndedAt(deadline.isBefore(now) ? deadline : now);
         return new CycleState(cycle, Status.ENDED, completed, null);
     }
 }
