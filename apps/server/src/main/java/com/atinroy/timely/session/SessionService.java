@@ -8,11 +8,20 @@ import com.atinroy.timely.common.Timezones;
 import com.atinroy.timely.pomodoro.PomodoroCycle;
 import com.atinroy.timely.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -20,6 +29,9 @@ import java.util.Optional;
 public class SessionService {
     private static final Instant FAR_FUTURE = Instant.parse("9999-12-31T00:00:00Z");
     private static final Long NO_SESSION = 0L;
+
+    public record SessionPage(List<Session> items, String nextCursor) {
+    }
 
     private final SessionRepository sessions;
     private final ActivityRepository activities;
@@ -35,6 +47,55 @@ public class SessionService {
     public Session get(Integer userId, Long id) {
         settle(userId, now());
         return sessions.findByIdAndUserId(id, userId).orElseThrow(() -> new NotFoundException("not-found"));
+    }
+
+    // Newest first. A null filter matches everything; nextCursor is null on the last page.
+    @Transactional
+    public SessionPage list(Integer userId, Instant from, Instant to, SessionKind kind, Integer activityId,
+                            Long pomodoroCycleId, int limit, String cursor) {
+        settle(userId, now());
+        Instant cursorStart = null;
+        Long cursorId = null;
+        if (cursor != null) {
+            String[] parts = decodeCursor(cursor);
+            cursorStart = parseCursorStart(parts[0]);
+            cursorId = Long.valueOf(parts[1]);
+        }
+        Instant after = cursorStart;
+        Long afterId = cursorId;
+        Specification<Session> filters = (root, query, cb) -> {
+            Path<Instant> startedAt = root.get("startedAt");
+            List<Predicate> all = new ArrayList<>();
+            all.add(cb.equal(root.get("user").get("id"), userId));
+            if (from != null) {
+                all.add(cb.greaterThanOrEqualTo(startedAt, from));
+            }
+            if (to != null) {
+                all.add(cb.lessThan(startedAt, to));
+            }
+            if (kind != null) {
+                all.add(cb.equal(root.get("kind"), kind));
+            }
+            if (activityId != null) {
+                all.add(cb.equal(root.get("activity").get("id"), activityId));
+            }
+            if (pomodoroCycleId != null) {
+                all.add(cb.equal(root.get("pomodoroCycle").get("id"), pomodoroCycleId));
+            }
+            if (after != null) {
+                all.add(cb.or(cb.lessThan(startedAt, after),
+                        cb.and(cb.equal(startedAt, after), cb.lessThan(root.<Long>get("id"), afterId))));
+            }
+            return cb.and(all.toArray(Predicate[]::new));
+        };
+        Sort newestFirst = Sort.by(Sort.Direction.DESC, "startedAt", "id");
+        List<Session> rows = sessions.findBy(filters, q -> q.sortBy(newestFirst).limit(limit + 1).all());
+        if (rows.size() <= limit) {
+            return new SessionPage(rows, null);
+        }
+        List<Session> items = rows.subList(0, limit);
+        Session last = items.getLast();
+        return new SessionPage(items, encodeCursor(last));
     }
 
     @Transactional
@@ -214,6 +275,27 @@ public class SessionService {
             throw new ConflictException("activity-archived");
         }
         return activity;
+    }
+
+    private static String encodeCursor(Session last) {
+        String raw = last.getStartedAt() + "|" + last.getId();
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String[] decodeCursor(String cursor) {
+        String[] parts = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8).split("\\|");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Invalid cursor");
+        }
+        return parts;
+    }
+
+    private static Instant parseCursorStart(String value) {
+        try {
+            return Instant.parse(value);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid cursor");
+        }
     }
 
     // Whole microseconds, as Postgres stores them, so a countdown's end is exactly start + planned length.

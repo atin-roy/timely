@@ -1,12 +1,13 @@
 package com.atinroy.timely.session;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.Instant;
 import java.util.Optional;
 
-public interface SessionRepository extends JpaRepository<Session, Long> {
+public interface SessionRepository extends JpaRepository<Session, Long>, JpaSpecificationExecutor<Session> {
     Optional<Session> findByIdAndUserId(Long id, Integer userId);
 
     Optional<Session> findByUserIdAndEndedAtIsNull(Integer userId);
