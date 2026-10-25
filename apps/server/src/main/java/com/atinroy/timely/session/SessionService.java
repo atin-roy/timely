@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -19,7 +18,6 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class SessionService {
-    private static final Duration TRIM_THRESHOLD = Duration.ofHours(12);
     private static final Instant FAR_FUTURE = Instant.parse("9999-12-31T00:00:00Z");
     private static final Long NO_SESSION = 0L;
 
@@ -143,12 +141,6 @@ public class SessionService {
     @Transactional
     public void delete(Integer userId, Long id) {
         sessions.delete(get(userId, id));
-    }
-
-    public boolean needsTrim(Session session) {
-        return session.getMode() == SessionMode.STOPWATCH
-                && session.getEndedAt() == null
-                && session.getStartedAt().plus(TRIM_THRESHOLD).isBefore(Instant.now());
     }
 
     private Session start(Integer userId, SessionKind kind, Activity activity, SessionMode mode,
