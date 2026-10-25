@@ -612,8 +612,8 @@ paths:
       summary: Starts the next focus session of a cycle
       description: >
         Allowed while the cycle is `waiting`. The activity defaults to the previous focus session's.
-        Fails with `409` and code `cycle-not-waiting` if a session is running or the cycle has
-        ended.
+        Fails with `409` and code `cycle-not-waiting` if a session is running, or `cycle-ended` if
+        the cycle has ended.
       requestBody:
         required: true
         content:
